@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Valves + Sensors</title>
+    <style>
+      .valve-box {
+        display:inline-block;
+        width:120px; height:120px;
+        margin:10px; padding:10px;
+        text-align:center;
+        border:2px solid #ccc;
+        border-radius:10px;
+        font-family: sans-serif;
+      }
+      .on  { background-color: lightgreen; }
+      .off { background-color: pink;      }
+      .valve-box a {
+        display:block;
+        margin-top: 30px;
+        text-decoration: none;
+        color: #333;
+        font-weight: bold;
+      }
+
+      .sensor-container {
+        display: flex;
+        gap: 10px;
+        margin-top: 30px;
+      }
+      .sensor-box {
+        width:120px; height:120px;
+        border:2px solid #aaa;
+        border-radius: 8px;
+        text-align:center;
+        line-height:120px;
+        font-family: sans-serif;
+        background-color: #f7f7f7;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Valve + Sensor Control</h1>
+
+    <!-- Valve Section -->
+    <div>
+      {% for ch, state in valves.items() %}
+        <div class="valve-box {{ 'on' if state else 'off' }}">
+          <div>Valve {{ ch }}</div>
+          <a href="/toggle/{{ ch }}">
+            {% if state %}Close{% else %}Open{% endif %}
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <hr>
+
+    <!-- Display sensor data dynamically using JavaScript -->
+    <h2>Sensor Readings (Raw ADC 0..1023)</h2>
+    <div id="sensor-container" class="sensor-container">
+      <!-- JavaScript will create sensor boxes here -->
+    </div>
+
+    <script>
+      // This function calls our /api/sensors endpoint
+      // which returns JSON like:
+      // { "0": {"raw": 512}, "1": {"raw":100}, ... }
+      // We'll update the sensor-container with the new data.
+      function fetchSensors() {
+        fetch('/api/sensors')
+          .then(response => response.json())
+          .then(data => {
+            // data is an object: e.g. { "0": {"raw":512}, "1":{"raw":300} }
+
+            // Get the sensor container
+            const container = document.getElementById('sensor-container');
+            container.innerHTML = '';  // clear old contents
+
+            // For each sensor channel in the data
+            Object.keys(data).forEach(mux_ch => {
+              const rawValue = data[mux_ch].raw;
+              // Create a sensor box
+              const box = document.createElement('div');
+              box.className = 'sensor-box';
+              box.innerHTML = `Sensor ${mux_ch}<br>${rawValue}`;
+              container.appendChild(box);
+            });
+          })
+          .catch(err => {
+            console.error('Error fetching sensor data:', err);
+          });
+      }
+
+      // Poll the sensor data every 2 seconds
+      setInterval(fetchSensors, 2000);
+
+      // Also fetch once right away
+      fetchSensors();
+    </script>
+
+  </body>
+</html>
