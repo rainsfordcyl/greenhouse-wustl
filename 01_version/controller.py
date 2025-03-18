@@ -3,56 +3,62 @@ import sensors
 import actuators
 import datalog
 
-DRY_THRESHOLD = 600
-
-def monitor_soil_and_control_valve(
+def check_soil_and_water_if_needed(
     sensor_id,
     valve_id,
     valve_open,
-    valve_open_time,
-    dry_threshold = DRY_THRESHOLD
+    time_valve_opened,
+    dry_threshold=600,
+    soak_seconds=2
 ):
     """
-    1) Reads sensor from MUX + MCP3008
-    2) Logs sensor reading
-    3) Decides if the soil is dry/wet
-    4) Toggles the valve on/off + logs actuator usage
-    5) Returns (valve_open, valve_open_time)
-
-    sensor_id: which MUX channel (and thus which sensor)
-    valve_id: which 74154 channel or logic identifies the valve
-    valve_open: boolean indicating if the valve is currently powered, if valve is powered on, it's watering
-    valve_open_time: when the valve was last opened (for computing durations)
-    dry_threshold: threshold for dryness check, above this is dry, below this is wet.
+    1) Reads sensor.
+    2) Logs sensor data.
+    3) If dryness > threshold => turn valve ON for 'soak_seconds'.
+    4) Otherwise ensure valve is OFF.
+    5) Return updated (valve_open, time_valve_opened).
     """
-    # --- (A) Read sensor ---
+
+    # Read the sensor
     sensors.set_mux_channel(sensor_id)
-    raw_value = sensors.read_mcp3008(channel=0) # smaller means wetter, greater mean dryer
-    voltage = (raw_value * 3.3) / 1023.0
-    percent_val = (raw_value / 1023.0) * 100.0
+    raw_value = sensors.read_mcp3008(channel=0)
 
-    print(f"[Sensor #{sensor_id}] raw={raw_value}, voltage={voltage:.3f}")
-    datalog.log_sensor_reading(sensor_id, raw_value, percent_val)
-
-    # --- (B) Decide Watering Action ---
-    if raw_value > dry_threshold: # dry
+    if raw_value > dry_threshold: # Soil is dry
         if not valve_open:
-            print("Soil is dry -> valve ON.")
+            # print("Soil is dry -> open valve.")
+            # open the valve
+            actuators.valve_on(valve_id)
+            datalog.log_actuator("open", valve_id)
             valve_open = True
-            valve_open_time = time.time()
-            actuators.valve_on()
-            datalog.log_actuator_event("open", valve_id) # Log 'open'
-        time.sleep(2) # Keep valve on for 2 seconds before next check
+            time_valve_opened = time.time()
 
-    else: # wet
-        if valve_open:
-            duration = time.time() - valve_open_time
-            valve_open = False
-            print("Soil is wet -> turning valve OFF.")
+            # wait for 2 seconds
+            while (time.time() - time_valve_opened) < 2:
+                pass
+
+            # # problem: data stopped recording when waiting for watering
+            # # wait until soil becomes wet
+            # while True:
+            #     sensors.set_mux_channel(sensor_id)
+            #     raw_value = sensors.read_mcp3008(channel=0)
+                
+            #     if raw_value <= dry_threshold:
+            #         break
+            
+            # close the valve
+            elapsed = time.time() - time_valve_opened
+            print(f"Soil is now wet -> closing valve (open for {elapsed:.1f}s).")
             actuators.valve_off()
-            datalog.log_actuator_event("close", valve_id, duration_seconds=duration) # Log 'close'
-        else:
-            print("Soil is wet enough -> keep valve OFF.")
+            datalog.log_actuator("close", valve_id, elapsed)
+            valve_open = False
+            time_valve_opened = 0
+            
+    else: # Soil is wet
+        if valve_open:
+            duration = time.time() - time_valve_opened
+            # print("Soil is wet -> close valve.")
+            actuators.valve_off()
 
-    print("---")
-    return valve_open, valve_open_time
+            datalog.log_actuator("close", valve_id, duration)
+            valve_open = False
+    return valve_open, time_valve_opened

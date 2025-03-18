@@ -1,6 +1,8 @@
 import RPi.GPIO as GPIO
 
-# ----- 74154 DEMUX PIN ASSIGNMENTS -----
+"""
+74154PC is active-high demux
+"""
 A = 5   # Pin 23 on the 74154
 B = 6   # Pin 22
 C = 13  # Pin 21
@@ -24,16 +26,25 @@ def set_demux_channel(channel):
     GPIO.output(C, (channel >> 2) & 0x01)
     GPIO.output(D, (channel >> 3) & 0x01)
 
-def valve_on():
-    """
-    Example: Turn ON valve at Y0. 
-    Adjust if you have multiple valves on different Y outputs.
-    """
-    set_demux_channel(0)
+# temporary solution
+def valve_on(channel):
+    if channel == 0:
+        temp = 15
+    set_demux_channel(temp)
 
 def valve_off():
-    """
-    Example: Turn OFF valve at Y0 by selecting a channel that isn't 0 
-    (like 15, making Y15=LOW and Y0=HIGH).
-    """
-    set_demux_channel(15)
+    set_demux_channel(0)
+
+# def valve_on(channel):
+#     """
+#     Example: Turn ON valve at Y0. 
+#     Adjust if you have multiple valves on different Y outputs.
+#     """
+#     set_demux_channel(channel)
+
+# def valve_off():
+#     """
+#     Example: Turn OFF valve at Y0 by selecting a channel that isn't 0 
+#     (like 15, making Y15=LOW and Y0=HIGH).
+#     """
+#     set_demux_channel(15)
