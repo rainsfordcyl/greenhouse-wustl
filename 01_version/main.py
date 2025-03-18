@@ -2,41 +2,41 @@ import time
 import RPi.GPIO as GPIO
 import sensors
 import actuators
-
-WET_THRESHOLD = 600
+import datalog
+import controller
 
 def main():
     try:
-        # 1) INIT GPIO
+        # Initialize
         GPIO.setwarnings(False)
         GPIO.setmode(GPIO.BCM)
         sensors.init_sensors()
         actuators.init_actuators()
+        datalog.init_logs()
 
+        valve_open = False
+        valve_open_time = 0
+
+        # We'll read sensor_id=0, control valve_id=0
         while True:
-            # Read sensor from MUX channel 0, MCP3008 CH0
-            sensors.set_mux_channel(0)
-            raw_value = sensors.read_mcp3008(channel=0)
-            voltage = (raw_value * 3.3) / 1023.0
-            print(f"[Sensor] raw={raw_value} voltage={voltage:.3f}")
-
-            # Decide to water or not
-            if raw_value < WET_THRESHOLD:
-                print("Soil is dry -> valve ON for 2 seconds.")
-                actuators.valve_on()
-                time.sleep(2)
-                print("Valve OFF.")
-                actuators.valve_off()
-            else:
-                print("Soil is wet enough -> keep valve OFF.")
-                actuators.valve_off()
-
-            print("---")
-            time.sleep(3)  # wait a bit before next read
+            valve_open, valve_open_time = controller.monitor_soil_and_control_valve(
+                sensor_id=0,
+                valve_id=0,
+                valve_open=valve_open,
+                valve_open_time=valve_open_time,
+                dry_threshold=600
+            )
+            time.sleep(3)  # Delay between checks
 
     except KeyboardInterrupt:
         pass
     finally:
+        # If valve is on at exit, log final close
+        if valve_open:
+            duration = time.time() - valve_open_time
+            datalog.log_actuator_event("close", valve_id=0, duration_seconds=duration)
+            actuators.valve_off()
+
         sensors.close_sensors()
         GPIO.cleanup()
 
