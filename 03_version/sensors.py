@@ -1,5 +1,6 @@
 # sensors.py
 import paho.mqtt.client as mqtt
+import datalog
 
 # Dictionary: key = sensor ID, value = float reading
 sensor_data = {}
@@ -21,6 +22,7 @@ def on_message(client, userdata, msg):
             sensor_data[sensor_id] = sensor_val
             new_data_available = True
             print(f"[MQTT] Sensor {sensor_id}: {sensor_val}")
+            datalog.log_sensor_reading(sensor_id, sensor_val)
         except ValueError:
             print(f"Invalid sensor data: {payload_str}")
     else:
@@ -28,6 +30,7 @@ def on_message(client, userdata, msg):
 
 def init_sensors():
     global client
+    datalog.init_logs()
     client = mqtt.Client("rpi_sensor_client")
     client.on_connect = on_connect
     client.on_message = on_message
