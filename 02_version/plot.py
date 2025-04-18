@@ -3,13 +3,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Path to your CSV file
-csv_file = 'data/sensor_log.csv'
+csv_file = 'data/history/0418_sensor_log.csv'
 
 # Read the CSV, parsing the 'datetime' column
 df = pd.read_csv(csv_file, parse_dates=['datetime'])
 
 # Specify the sensor ID you want to plot
-sensor_id = 2  # Change this value to the desired sensor ID
+sensor_id = 0  # Change this value to the desired sensor ID
 
 # Filter for the specified sensor_id from the CSV data
 df_sensor = df[df['sensor_id'] == sensor_id]
