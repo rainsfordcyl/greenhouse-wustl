@@ -1,50 +1,47 @@
 import RPi.GPIO as GPIO
 
-"""
-74154PC is active-high demux
-"""
-A = 5   # Pin 23 on the 74154
-B = 6   # Pin 22
-C = 13  # Pin 21
-D = 19  # Pin 20
+# Address pins for the CD74HC4067
+S0 = 17
+S1 = 27
+S2 = 22
+S3 = 23
+SIG_PIN = 24
 
 def init_actuators():
     """
-    Set up the 74154 demux pins as outputs, initial LOW.
-    Call this once at startup.
+    Sets up the MUX pins as outputs and permanently enables the chip
+    by tying EN to GND physically.
     """
-    for pin in (A, B, C, D):
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)
+    for pin in (S0, S1, S2, S3):
         GPIO.setup(pin, GPIO.OUT, initial=GPIO.LOW)
+    
+    GPIO.setup(SIG_PIN, GPIO.OUT, initial=GPIO.LOW)
 
-def set_demux_channel(channel):
+def select(channel):
     """
     channel: 0..15
-    If channel=0 => Y0 is LOW => relay on that output active (for an active-low relay).
+    The selected channel => SIG pin is connected to C[channel].
+    All other C pins are disconnected.
     """
-    GPIO.output(A, channel & 0x01)
-    GPIO.output(B, (channel >> 1) & 0x01)
-    GPIO.output(C, (channel >> 2) & 0x01)
-    GPIO.output(D, (channel >> 3) & 0x01)
+    GPIO.output(S0, channel & 0x01)
+    GPIO.output(S1, (channel >> 1) & 0x01)
+    GPIO.output(S2, (channel >> 2) & 0x01)
+    GPIO.output(S3, (channel >> 3) & 0x01)
 
-# temporary solution
-def valve_on(channel):
-    if channel == 0:
-        temp = 15
-    set_demux_channel(temp)
+def turn_on(channel):
+    select(channel)
+    GPIO.output(SIG_PIN, GPIO.HIGH)
 
-def valve_off():
-    set_demux_channel(0)
+def turn_off(channel):
+    select(channel)
+    GPIO.output(SIG_PIN, GPIO.LOW)
 
-# def valve_on(channel):
-#     """
-#     Example: Turn ON valve at Y0. 
-#     Adjust if you have multiple valves on different Y outputs.
-#     """
-#     set_demux_channel(channel)
-
-# def valve_off():
-#     """
-#     Example: Turn OFF valve at Y0 by selecting a channel that isn't 0 
-#     (like 15, making Y15=LOW and Y0=HIGH).
-#     """
-#     set_demux_channel(15)
+def deactivate_all():
+    """
+    Turn SIG pin LOW and optionally select a 'dummy' channel (like 15) 
+    that isn't used. This effectively leaves all real channels unpowered.
+    """
+    # Setting SIG=LOW ensures no channel sees a HIGH voltage.
+    GPIO.output(SIG_PIN, GPIO.LOW)
